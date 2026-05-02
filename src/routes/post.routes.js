@@ -6,16 +6,24 @@ const { requireAuth, optionalAuth } = require('../middleware/auth');
 const { generalLimit } = require('../middleware/rateLimit');
 const { AppError } = require('../middleware/errorHandler');
 
+const multer = require('multer');
+const storageService = require('../services/storage.service');
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 },
+});
+
 const createPostSchema = z.object({
   post_type: z.enum(['recipe', 'dining']),
-  meal_id: z.string().uuid().optional(),
-  restaurant_id: z.string().uuid().optional(),
+  meal_id: z.string().uuid().optional().or(z.literal('')).transform(v => v === '' ? undefined : v),
+  restaurant_id: z.string().uuid().optional().or(z.literal('')).transform(v => v === '' ? undefined : v),
   note: z.string().max(500).optional(),
-  image_url: z.string().url().optional(),
+  image_url: z.string().url().optional().or(z.literal('')),
   mood_before: z.string().max(50).optional(),
   mood_after: z.string().max(50).optional(),
   ordered_items: z.string().max(300).optional(),
-  is_public: z.boolean().default(true),
+  is_public: z.preprocess((val) => val === 'true' || val === true || val === undefined, z.boolean()).default(true),
 });
 
 // GET /v1/posts/feed
@@ -72,9 +80,19 @@ router.get('/feed', requireAuth, generalLimit, async (req, res, next) => {
 });
 
 // POST /v1/posts
-router.post('/', requireAuth, async (req, res, next) => {
+router.post('/', requireAuth, upload.single('image'), async (req, res, next) => {
   try {
     const body = createPostSchema.parse(req.body);
+
+    // Handle image upload if file is present
+    if (req.file) {
+      const uploadResult = await storageService.uploadImage(
+        req.file.buffer,
+        req.user.id,
+        'post'
+      );
+      body.image_url = uploadResult.url;
+    }
 
     const { data: post, error } = await supabaseAdmin
       .from('posts')
