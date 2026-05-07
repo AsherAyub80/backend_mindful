@@ -67,7 +67,7 @@ router.post('/register', authLimit, async (req, res, next) => {
         name: body.name,
         handle: body.handle,
       })
-      .select('id, email, name, handle, avatar_url, streak_count, created_at')
+      .select('*')
       .single();
 
     if (error) {
@@ -78,10 +78,22 @@ router.post('/register', authLimit, async (req, res, next) => {
     // Create default preferences
     await supabaseAdmin.from('user_preferences').insert({ user_id: user.id });
 
+    const safeUser = {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      handle: user.handle,
+      avatar_url: user.avatar_url,
+      streak_count: user.streak_count,
+      role: user.role ?? 'user',
+      status: user.status ?? 'active',
+      created_at: user.created_at,
+    };
+
     const { accessToken, refreshToken } = generateTokens(user.id);
     await storeRefreshToken(user.id, refreshToken);
 
-    res.status(201).json({ user, accessToken, refreshToken });
+    res.status(201).json({ user: safeUser, accessToken, refreshToken });
   } catch (err) { next(err); }
 });
 
@@ -92,19 +104,36 @@ router.post('/login', authLimit, async (req, res, next) => {
 
     const { data: user, error } = await supabaseAdmin
       .from('users')
-      .select('id, email, name, handle, avatar_url, streak_count, password_hash')
+      .select('*')
       .eq('email', email)
       .single();
 
-    if (error || !user) throw new AppError('Invalid email or password', 401);
+    if (error || !user) {
+      console.warn(`[auth] login failed: user not found for ${email}`);
+      throw new AppError('Invalid email or password', 401);
+    }
 
     const valid = await bcrypt.compare(password, user.password_hash);
-    if (!valid) throw new AppError('Invalid email or password', 401);
+    if (!valid) {
+      console.warn(`[auth] login failed: password mismatch for ${email}`);
+      throw new AppError('Invalid email or password', 401);
+    }
+
+    const safeUser = {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      handle: user.handle,
+      avatar_url: user.avatar_url,
+      streak_count: user.streak_count,
+      role: user.role ?? 'user',
+      status: user.status ?? 'active',
+      created_at: user.created_at,
+    };
 
     const { accessToken, refreshToken } = generateTokens(user.id);
     await storeRefreshToken(user.id, refreshToken);
 
-    const { password_hash, ...safeUser } = user;
     res.json({ user: safeUser, accessToken, refreshToken });
   } catch (err) { next(err); }
 });

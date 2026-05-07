@@ -7,15 +7,20 @@
 -- Password for all: "password123" (bcrypt hash)
 INSERT INTO users (id, email, password_hash, name, handle, bio, streak_count) VALUES
   ('11111111-1111-1111-1111-111111111111', 'alex@demo.com',
-   '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj4QvDRNSVQe',
+   '$2a$12$9AvUbnk4Rv7dagWnKR3Pd.DOlGZXLNeEi3worsROmNobjIYED0uNq',
    'Alex Rivers', 'alex_mindful', 'Plant-based explorer 🌿', 7),
   ('22222222-2222-2222-2222-222222222222', 'aria@demo.com',
-   '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj4QvDRNSVQe',
+   '$2a$12$9AvUbnk4Rv7dagWnKR3Pd.DOlGZXLNeEi3worsROmNobjIYED0uNq',
    'Aria Chen', 'aria_eats', 'Food photographer & wellness advocate ✨', 12),
   ('33333333-3333-3333-3333-333333333333', 'marcus@demo.com',
-   '$2a$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj4QvDRNSVQe',
+   '$2a$12$9AvUbnk4Rv7dagWnKR3Pd.DOlGZXLNeEi3worsROmNobjIYED0uNq',
    'Marcus Lee', 'mindful_marcus', 'Mindfulness coach & home chef 🧘', 5)
-ON CONFLICT DO NOTHING;
+ON CONFLICT (email) DO UPDATE SET
+  password_hash = EXCLUDED.password_hash,
+  name = EXCLUDED.name,
+  handle = EXCLUDED.handle,
+  bio = EXCLUDED.bio,
+  streak_count = EXCLUDED.streak_count;
 
 INSERT INTO user_preferences (user_id, dietary_tags, allergy_tags, goal_tags, calorie_target) VALUES
   ('11111111-1111-1111-1111-111111111111', ARRAY['vegan','gluten-free'], ARRAY['tree-nuts'], ARRAY['weight-balance','mindfulness'], 1800),
