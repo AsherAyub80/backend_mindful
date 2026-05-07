@@ -74,6 +74,14 @@ uvicorn main:app --reload --port 8000
 curl http://localhost:3000/health
 curl http://localhost:8000/health
 
+### API documentation
+Once the backend is running, open:
+- Swagger UI: http://localhost:3000/api-docs
+- Shortcut redirect: http://localhost:3000/docs
+- OpenAPI JSON: http://localhost:3000/api-docs.json
+
+For protected routes, click `Authorize` in Swagger UI and paste your JWT access token as `Bearer <token>`.
+
 ---
 
 ## FLUTTER INTEGRATION
