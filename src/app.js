@@ -16,16 +16,70 @@ const { errorHandler } = require('./middleware/errorHandler');
 
 const app = express();
 
-app.use(helmet());
-app.use(cors({
-  origin: process.env.NODE_ENV === 'production'
-    ? [
-        process.env.APP_URL || 'https://mindfulmeals.app',
-        process.env.ADMIN_URL || 'https://admin.mindfulmeals.app',
-      ]
-    : ['http://localhost:5173', 'http://localhost:3001', 'http://localhost:5174', '*'],
+function parseEnvList(value) {
+  return (value || '')
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+}
+
+const isProduction = process.env.NODE_ENV === 'production';
+const defaultOrigins = isProduction
+  ? [
+      process.env.APP_URL || 'https://mindfulmeals.app',
+      process.env.ADMIN_URL || 'https://admin.mindfulmeals.app',
+    ]
+  : ['http://localhost:5173', 'http://localhost:3001', 'http://localhost:5174'];
+
+const allowedOrigins = new Set([
+  ...defaultOrigins,
+  ...parseEnvList(process.env.CORS_ORIGINS),
+]);
+
+const allowedOriginPatterns = parseEnvList(process.env.CORS_ORIGIN_REGEX)
+  .map((pattern) => {
+    try {
+      return new RegExp(pattern);
+    } catch (_) {
+      console.warn(`Ignoring invalid CORS regex: ${pattern}`);
+      return null;
+    }
+  })
+  .filter(Boolean);
+
+const allowVercelPreviews = process.env.ALLOW_VERCEL_PREVIEWS === 'true';
+
+function isAllowedOrigin(origin) {
+  if (!origin) {
+    return true;
+  }
+
+  if (allowedOrigins.has(origin)) {
+    return true;
+  }
+
+  if (allowVercelPreviews && /^https:\/\/[a-z0-9-]+\.vercel\.app$/i.test(origin)) {
+    return true;
+  }
+
+  return allowedOriginPatterns.some((pattern) => pattern.test(origin));
+}
+
+const corsOptions = {
+  origin(origin, callback) {
+    if (isAllowedOrigin(origin)) {
+      return callback(null, true);
+    }
+
+    return callback(new Error(`CORS blocked for origin: ${origin}`));
+  },
   credentials: true,
-}));
+  optionsSuccessStatus: 204,
+};
+
+app.use(helmet());
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
